@@ -1,0 +1,14 @@
+# Build
+target/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Personal docs (reference sheet stays tracked)
+docs/roadmap-*.md
+docs/NOTES.md
+
+# Claude Code
+.claude/
+CLAUDE.local.md
