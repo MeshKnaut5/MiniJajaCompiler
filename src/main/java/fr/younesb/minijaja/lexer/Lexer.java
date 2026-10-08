@@ -1,5 +1,8 @@
 package fr.younesb.minijaja.lexer;
 
+import fr.younesb.minijaja.error.ErrorCode;
+import fr.younesb.minijaja.error.MjjError;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +29,7 @@ public final class Lexer {
 
     private final String source;
     private final List<Token> tokens = new ArrayList<>();
+    private final List<MjjError> errors = new ArrayList<>();
     private int current = 0;
     private int start = 0;
     private int column = 1;
@@ -39,12 +43,14 @@ public final class Lexer {
     }
 
     // Public entry point
-    public static List<Token> scan(String source) {
-        return List.copyOf(new Lexer(source).scanTokens());
+    public static LexResult scan(String source) {
+        Lexer lexer = new Lexer(source);
+        lexer.scanTokens();
+        return new LexResult(lexer.tokens, lexer.errors);
     }
 
     // MAIN SCANNING LOOP
-    private List<Token> scanTokens() {
+    private void scanTokens() {
         while (!isAtEnd()) {
             start = current;
             startLine = line;
@@ -52,7 +58,6 @@ public final class Lexer {
             scanToken();
         }
         tokens.add(new Token(TokenType.EOF, "", line, column));
-        return tokens;
     }
 
     private void scanToken() {
@@ -95,14 +100,14 @@ public final class Lexer {
                 if (match('&')) {
                     addToken(TokenType.AMPER_AMPER);
                 } else {
-                    // error: lone '&', not handled yet
+                    addError(ErrorCode.LONE_AMPER, "lone & (did you mean && ?)");
                 }
             }
             case '|' -> {
                 if (match('|')) {
                     addToken(TokenType.PIPE_PIPE);
                 } else {
-                    // error: lone '|', not handled yet
+                    addError(ErrorCode.LONE_PIPE, "lone | (did you mean || ?)");
                 }
             }
             default -> {
@@ -111,7 +116,8 @@ public final class Lexer {
                 } else if (isAlpha(c)) {
                     scanIdentifier();
                 } else {
-                    //will handle errors later
+                    addError(ErrorCode.UNEXPECTED_CHARACTER,
+                            "unexpected character '" + source.substring(start, current) + "'");
                 }
             }
         }
@@ -123,7 +129,7 @@ public final class Lexer {
         }
 
         if (isAtEnd()) {
-            //error "Unterminated string."
+            addError(ErrorCode.UNTERMINATED_STRING, "missing '\"', unterminated string");
             return;
         }
         advance();
@@ -134,7 +140,8 @@ public final class Lexer {
     private void scanBlockComment() {
         while (!(peek() == '*' && peekNext() == '/')) {
             if (isAtEnd()) {
-                //error unterminated block comment
+                addError(ErrorCode.UNTERMINATED_BLOCK_COMMENT,
+                        "missing '/', unterminated block comment");
                 return;
             }
             advance();
@@ -155,6 +162,10 @@ public final class Lexer {
     }
 
     // HELPER
+    private void addError(ErrorCode code, String message) {
+        errors.add(new MjjError(startLine, startColumn, code, message));
+    }
+
     private boolean isAlpha(char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
     }
